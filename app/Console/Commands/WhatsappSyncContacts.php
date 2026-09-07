@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ChatQueue;
 use App\Models\Contact;
 use App\Services\ChatConversationService;
 use App\Services\RoundRobinAssignmentService;
@@ -71,6 +72,23 @@ class WhatsappSyncContacts extends Command
             app(\App\Services\RoundRobinAssignmentService::class)->assignIfUnassigned($contact);
 
             $this->syncConversationState($contact, $client, $conversation, $messageLimit, $cooldownSeconds);
+
+            // If contact requires human handoff and has no assigned agent, attempt assignment or push to chat queue
+            $contact->refresh();
+            if (($contact->needs_human || $contact->human_handoff_active) && !$contact->assigned_agent_id) {
+                $assignmentService = app(RoundRobinAssignmentService::class);
+                $assigned = $assignmentService->assignNextAgent($contact);
+
+                if (!$assigned) {
+                    ChatQueue::firstOrCreate(
+                        ['contact_id' => $contact->id],
+                        [
+                            'priority' => 0,
+                            'queued_at' => now(),
+                        ]
+                    );
+                }
+            }
         }
 
         Log::info('Recent contacts synced', [

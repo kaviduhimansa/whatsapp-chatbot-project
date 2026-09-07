@@ -28,6 +28,13 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        if ($user = auth()->user() ?? $request->user()) {
+            $user->update([
+                'last_seen_at' => now(),
+                'last_activity_at' => now(),
+            ]);
+        }
+
         return redirect()->intended(route('chats.index', absolute: false));
     }
 
@@ -36,6 +43,13 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        if ($user = auth()->user() ?? $request->user()) {
+            $user->update([
+                'last_seen_at' => now()->subHours(2),
+                'last_activity_at' => null,
+            ]);
+        }
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

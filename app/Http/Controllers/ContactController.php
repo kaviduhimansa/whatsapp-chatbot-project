@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChatQueue;
 use App\Models\Contact;
 use App\Services\RoundRobinAssignmentService;
 use Illuminate\Http\Request;
@@ -32,8 +33,25 @@ class ContactController extends Controller
             ['name' => $data['name'] ?: $data['mobile']]
         );
 
+<<<<<<< HEAD
+        // If contact is not yet assigned, attempt assignment or push to chat queue
+        if (!$contact->assigned_agent_id) {
+            $assignmentService = app(RoundRobinAssignmentService::class);
+            $assigned = $assignmentService->assignNextAgent($contact);
+
+            if (!$assigned) {
+                ChatQueue::firstOrCreate(
+                    ['contact_id' => $contact->id],
+                    [
+                        'priority' => 0,
+                        'queued_at' => now(),
+                    ]
+                );
+            }
+=======
         if ($contact->wasRecentlyCreated) {
             $assignment->assignIfUnassigned($contact);
+>>>>>>> 266c7ae6e676e57dab7f1f2bf7b346745e5a1e4c
         }
 
         return redirect()->route('chats.index')->with('status', 'Contact saved.');

@@ -94,6 +94,10 @@ class ChatLockController extends Controller
             ]), 423);
         }
 
+        if ($result['state'] === 'released') {
+            app(\App\Services\RoundRobinAssignmentService::class)->processNextQueueItemForAgent($userId);
+        }
+
         return response()->json(array_merge($payload, [
             'ok' => true,
             'released' => $result['state'] === 'released',
