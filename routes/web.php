@@ -52,6 +52,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/chats/{contact}/lock/acquire', [ChatLockController::class, 'acquire'])
         ->name('chats.lock.acquire');
 
+<<<<<<< HEAD
+    // Queue & capacity status dashboard endpoint
+    Route::get('/api/queue/status', [ChatApiController::class, 'queueStatus'])->name('api.queue.status');
+
+    // Logs page
+=======
     Route::post('/chats/{contact}/lock/release', [ChatLockController::class, 'release'])
         ->name('chats.lock.release');
 
@@ -66,6 +72,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('chats.handoff.reset');
 
     // Logs
+>>>>>>> 266c7ae6e676e57dab7f1f2bf7b346745e5a1e4c
     Route::get('/logs', [LogController::class, 'index'])->name('logs.index');
 
     /*

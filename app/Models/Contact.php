@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Contact extends Model
@@ -27,7 +29,9 @@ class Contact extends Model
         'human_handoff_message_key',
         'human_handoff_message_preview',
         'human_handoff_assigned_user_id',
+        'assigned_agent_id',
         'human_handoff_assigned_at',
+        'assigned_agent_id',
         'locked_by_user_id',
         'locked_at',
     ];
@@ -97,14 +101,45 @@ class Contact extends Model
             || (bool) $this->human_handoff_active;
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (Contact $contact) {
+            if ($contact->isDirty('human_handoff_assigned_user_id') && !$contact->isDirty('assigned_agent_id')) {
+                $contact->assigned_agent_id = $contact->human_handoff_assigned_user_id;
+            } elseif ($contact->isDirty('assigned_agent_id') && !$contact->isDirty('human_handoff_assigned_user_id')) {
+                $contact->human_handoff_assigned_user_id = $contact->assigned_agent_id;
+            }
+        });
+    }
+
     public function lockedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'locked_by_user_id');
     }
 
+    public function assignedAgent(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_agent_id');
+    }
+
     public function humanHandoffAssignedTo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'human_handoff_assigned_user_id');
+    }
+
+    public function assignedAgent(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_agent_id');
+    }
+
+    public function chatQueue(): HasOne
+    {
+        return $this->hasOne(ChatQueue::class);
+    }
+
+    public function chatQueues(): HasMany
+    {
+        return $this->hasMany(ChatQueue::class);
     }
 
     public function isLockExpired(): bool
