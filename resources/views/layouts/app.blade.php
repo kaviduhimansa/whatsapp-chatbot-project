@@ -83,6 +83,17 @@
                     noticeTimers: {},
 
                     init() {
+                        @auth
+                        setInterval(() => {
+                            fetch('/heartbeat', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                },
+                            });
+                        }, 30000);
+                        @endauth
+
                         window.addEventListener('app:error', (event) => {
                             const key = String(event?.detail?.key || '').trim();
                             const message = String(event?.detail?.message || 'Something went wrong.');

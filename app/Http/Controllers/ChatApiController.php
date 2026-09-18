@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChatQueue;
 use App\Models\Contact;
+use App\Models\User;
 use App\Services\ChatConversationService;
+use App\Services\RoundRobinAssignmentService;
 use App\Services\SltWhatsappClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -242,10 +245,55 @@ class ChatApiController extends Controller
     {
         $conversation->resetHumanHandoff($contact, 'resolved');
 
+        // Whenever an agent finishes a chat, pull the oldest item from chat_queues (FIFO) and assign it to that agent
+        if ($userId = auth()->id()) {
+            app(\App\Services\RoundRobinAssignmentService::class)->processNextQueueItemForAgent((int) $userId);
+        }
+
         return response()->json([
             'ok' => true,
             'message' => 'Chat resolved.',
             'handoff' => $conversation->handoffPayload($contact),
+        ]);
+    }
+
+    /**
+     * GET /api/queue/status
+     * Returns current chat queue depth and per-agent capacity statistics.
+     */
+    public function queueStatus(RoundRobinAssignmentService $router): \Illuminate\Http\JsonResponse
+    {
+        $queueDepth = ChatQueue::count();
+
+        $onlineAgents = User::onlineAndActive()
+            ->withCount(['contacts as active_count' => function ($q) {
+                $q->whereIn('human_handoff_status', ['active', 'assigned_to_agent']);
+            }])
+            ->groupBy('users.id')
+            ->get();
+
+        $maxCapacity = RoundRobinAssignmentService::DEFAULT_MAX_CAPACITY;
+
+        $agentStats = $onlineAgents->map(fn (User $u) => [
+            'id'              => $u->id,
+            'name'            => $u->name,
+            'active_chats'    => $u->active_count,
+            'capacity'        => $maxCapacity,
+            'available_slots' => max(0, $maxCapacity - $u->active_count),
+            'is_available'    => $u->active_count < $maxCapacity,
+        ]);
+
+        $totalOnline    = $onlineAgents->count();
+        $availableCount = $agentStats->where('is_available', true)->count();
+        $totalSlots     = $agentStats->sum('available_slots');
+
+        return response()->json([
+            'queue_depth'        => $queueDepth,
+            'online_agents'      => $totalOnline,
+            'available_agents'   => $availableCount,
+            'busy_agents'        => $totalOnline - $availableCount,
+            'total_open_slots'   => $totalSlots,
+            'agents'             => $agentStats->values(),
         ]);
     }
 

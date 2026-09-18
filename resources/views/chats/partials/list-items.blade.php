@@ -18,7 +18,7 @@
     $handoffRequestedAtIso = optional($handoffRequestedAt)->toIso8601String();
     $showNeedsHumanBadge = $needsHuman
       && (!$handoffRequestedAt || $handoffRequestedAt->copy()->addHour()->isFuture());
-    $assignedAgentName = $c->humanHandoffAssignedTo?->name;
+    $assignedAgentName = $c->assignedAgent?->name ?? $c->humanHandoffAssignedTo?->name;
     $lastActivityAt = $c->last_message_at ?? $c->updated_at;
     $preview = $c->last_message_preview ?: 'Waiting for customer messages';
     $previewPrefix = $c->last_message_direction === 'out' ? 'You: ' : 'Customer: ';

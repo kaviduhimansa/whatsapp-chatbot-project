@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'logout',
         ]);
 
+        $middleware->web(append: [
+            \App\Http\Middleware\UpdateUserActivity::class,
+        ]);
+
         $middleware->alias([
             'superadmin' => \App\Http\Middleware\SuperAdminMiddleware::class,
         ]);

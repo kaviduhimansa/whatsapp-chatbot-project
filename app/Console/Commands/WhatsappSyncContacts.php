@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ChatQueue;
 use App\Models\Contact;
 use App\Services\ChatConversationService;
+use App\Services\RoundRobinAssignmentService;
 use App\Services\SltWhatsappClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -14,7 +16,11 @@ class WhatsappSyncContacts extends Command
     protected $signature = 'whatsapp:sync-contacts {--limit=40}';
     protected $description = 'Sync the most-recent active mobile numbers into contacts table';
 
-    public function handle(SltWhatsappClient $client, ChatConversationService $conversation): int
+    public function handle(
+        SltWhatsappClient $client,
+        ChatConversationService $conversation,
+        RoundRobinAssignmentService $assignment
+    ): int
     {
         $limit = max(1, (int) $this->option('limit'));
         $messageLimit = max(1, (int) config('chat.state_sync_message_limit', 15));
@@ -57,16 +63,32 @@ class WhatsappSyncContacts extends Command
             } else {
                 if (!$contact->name || $contact->name === $contact->mobile) {
                     $contact->name = $mobile;
-                }
-
-                if ($contact->isDirty('name')) {
                     $contact->save();
                 }
-
                 $updated++;
             }
 
+            // Call Round-Robin assignment after if-else for all contacts
+            app(\App\Services\RoundRobinAssignmentService::class)->assignIfUnassigned($contact);
+
             $this->syncConversationState($contact, $client, $conversation, $messageLimit, $cooldownSeconds);
+
+            // If contact requires human handoff and has no assigned agent, attempt assignment or push to chat queue
+            $contact->refresh();
+            if (($contact->needs_human || $contact->human_handoff_active) && !$contact->assigned_agent_id) {
+                $assignmentService = app(RoundRobinAssignmentService::class);
+                $assigned = $assignmentService->assignNextAgent($contact);
+
+                if (!$assigned) {
+                    ChatQueue::firstOrCreate(
+                        ['contact_id' => $contact->id],
+                        [
+                            'priority' => 0,
+                            'queued_at' => now(),
+                        ]
+                    );
+                }
+            }
         }
 
         Log::info('Recent contacts synced', [

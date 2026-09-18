@@ -532,24 +532,37 @@ class ChatConversationService
         try {
             if (is_numeric($ts)) {
                 $n = (int) $ts;
+
                 if ($n > 9999999999) {
-                    return Carbon::createFromTimestampMs($n, 'UTC')->setTimezone($tz)->toIso8601String();
+                    return Carbon::createFromTimestampMs($n, 'UTC')
+                        ->setTimezone($tz)
+                        ->toIso8601String();
                 }
 
-                return Carbon::createFromTimestamp($n, 'UTC')->setTimezone($tz)->toIso8601String();
+                return Carbon::createFromTimestamp($n, 'UTC')
+                    ->setTimezone($tz)
+                    ->toIso8601String();
             }
 
             $raw = trim((string) $ts);
+
             if ($this->isTimeOnlyTimestamp($raw)) {
                 return null;
             }
 
-            $hasOffset = (bool) preg_match('/(Z|[+\-]\d{2}:?\d{2})$/i', $raw);
-            $parsed = $hasOffset
-                ? Carbon::parse($raw)
-                : Carbon::parse($raw, 'UTC');
+            $hasOffset = (bool) preg_match(
+                '/(Z|[+\-]\d{2}:?\d{2})$/i',
+                $raw
+            );
 
-            return $parsed->setTimezone($tz)->toIso8601String();
+            $parsed = $hasOffset
+                ? Carbon::parse($raw) // If an offset is present, respect it
+                : Carbon::parse($raw, $tz); // If no offset is present, assume the current timezone ($tz / Asia/Colombo)
+
+            return $parsed
+                ->setTimezone($tz)
+                ->toIso8601String();
+
         } catch (\Throwable $e) {
             return null;
         }
