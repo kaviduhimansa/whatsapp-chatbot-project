@@ -28,14 +28,16 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        if ($user = auth()->user() ?? $request->user()) {
-            $user->update([
-                'last_seen_at' => now(),
-                'last_activity_at' => now(),
-            ]);
-        }
+        // Mark the user as online and save the login time.
+        $request->user()->update([
+            'user_status' => 'online',
+            'login_at' => now(),
+            'logout_at' => null,
+        ]);
 
-        return redirect()->intended(route('chats.index', absolute: false));
+        return redirect()->intended(
+            route('chats.index', absolute: false)
+        );
     }
 
     /**
@@ -43,12 +45,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
-        if ($user = auth()->user() ?? $request->user()) {
-            $user->update([
-                'last_seen_at' => now()->subHours(2),
-                'last_activity_at' => null,
-            ]);
-        }
+        // Mark the user as offline and save the logout time.
+        $request->user()->update([
+            'user_status' => 'offline',
+            'logout_at' => now(),
+        ]);
 
         Auth::guard('web')->logout();
 
