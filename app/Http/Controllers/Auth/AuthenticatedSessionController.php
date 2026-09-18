@@ -28,7 +28,16 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('chats.index', absolute: false));
+        // Mark the user as online and save the login time.
+        $request->user()->update([
+            'user_status' => 'online',
+            'login_at' => now(),
+            'logout_at' => null,
+        ]);
+
+        return redirect()->intended(
+            route('chats.index', absolute: false)
+        );
     }
 
     /**
@@ -36,6 +45,12 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // Mark the user as offline and save the logout time.
+        $request->user()->update([
+            'user_status' => 'offline',
+            'logout_at' => now(),
+        ]);
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
